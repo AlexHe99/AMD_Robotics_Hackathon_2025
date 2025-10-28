@@ -51,7 +51,7 @@ video                  77824  1 amdgpu
 
 ## Setup the ROCm Development Environment for the LeRobot
 
-At now [2025/10],  LeRobot depends on PyTorch version >=2.2.1, <2.8.0 (see https://github.com/huggingface/lerobot/blob/a0d7627d/pyproject.toml )
+At now [2025/10],  LeRobot depends on PyTorch version >=2.2.1, <2.8.0 (see `pyproject.toml` )
 
 So that we recommend using ROCm 6.3 and PyTorch 2.7 combination to make compatible with LeRobot.
 
@@ -78,7 +78,7 @@ You could get more details from https://rocm.docs.amd.com/projects/radeon-ryzen/
 ### Install PyTorch with ROCm
 
 To repeat
-At now [2025/10],  LeRobot depends on PyTorch version >=2.2.1, <2.8.0 (see https://github.com/huggingface/lerobot/blob/a0d7627d/pyproject.toml )
+At now [2025/10],  LeRobot depends on PyTorch version >=2.2.1, <2.8.0 (see `pyproject.toml` )
 
 But PyTorch.org supports PyTorch-ROCm latest version is v2.8.0+. So that we need to install the previous-versions of PyTorch-ROCm.
 
@@ -127,14 +127,14 @@ git clone https://github.com/huggingface/lerobot.git
 cd lerobot
 
 # let’s synchronize using this version
-git checkout -b v0.3.3 v0.3.3
+git checkout -b v0.4.0 v0.4.0
 pip install -e .
 ```
 
 Check the Installation
 ```shell
 pip list | grep lerobot
-lerobot                0.3.3          /home/alex/lerobot
+lerobot                0.4.0          /home/alex/lerobot
 ```
 
 Install the feetech-servo-sdk for SO-ARM101 in this Hackation.
