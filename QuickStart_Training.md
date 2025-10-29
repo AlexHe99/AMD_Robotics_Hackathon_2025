@@ -1,7 +1,9 @@
 # Train Lerobot Models on MI300x
-This guide walks you through setting up the LeRobot training environment on a DigitalOcean (DO) instance equipped with AMD MI300x GPUs and ROCm.
+This guide walks you through setting up environment for training imitation learning policies using [LeRobot](https://github.com/huggingface/lerobot) library on a DigitalOcean (DO) instance equipped with AMD MI300x GPUs and ROCm.
 
 ## Prerequisites
+- A Hugging Face dataset repo ID containing your training data (`--dataset.repo_id=${HF_USER}/${DATASET_NAME}`)
+- A wandb account to enable training visualization
 - Access to DO instance AMD Mi300x GPU
 - Verify ROCm and GPU availability:
   ``` bash
@@ -18,92 +20,105 @@ This guide walks you through setting up the LeRobot training environment on a Di
   ============================================================================================================================
   =================================================== End of ROCm SMI Log ====================================================
   ```
-- Record ~50 episodes of your task (e.g., pick-and-place with different cube positions)
-- Upload the dataset to the Hugging Face Hub or store it locally on the DO instance
 
 ## Environment Setup
-- #### Start Docker Container
+### Option 1 (Recommended)
+Use the pre-built docker image which includes all the necessary dependencies for training ACT and SmolVLA models.  
+``` bash
+docker run \
+--device /dev/dri \
+--device /dev/kfd \
+--network host \
+--ipc host \
+--group-add video \
+--cap-add SYS_PTRACE \
+--security-opt seccomp=unconfined \
+--workdir /lerobot \
+--privileged \
+-it -d \
+--name lerobot xshan1/pytorch:rocm7.0_ubuntu24.04_py3.12_pytorch_release_2.7.1_lerobot_0.4.0
+/bin/bash
+```
+`--volume /path/on/host:/path/in/container` can be added to set a shared folder between host and container. Datasets and trained models can be transfered through the folder.
 
-    -   **Option 1 (Recommended)**: use the pre-built docker image which includes all the necessary dependencies for training ACT and SmolVLA models. `--volume` is used to set the shared folder between host and container. Datasets and trained models can be transfered through the folder.
-        ``` bash
-        docker run \
-        --device /dev/dri \
-        --device /dev/kfd \
-        --network host \
-        --ipc host \
-        --group-add video \
-        --cap-add SYS_PTRACE \
-        --security-opt seccomp=unconfined \
-        --workdir /lerobot-0.3.3 \
-        --volume /path/on/host:/path/in/container \
-        --privileged \
-        -it -d \
-        --name lerobot xshan1/pytorch:rocm6.4.4_ubuntu24.04_py3.12_pytorch_release_2.7.1_lerobot_0.3.3
-        /bin/bash
-        ```
+### Option 2
+Build environment from official ROCm Docker image. Here are the steps to prepare the setup.
+#### Start the container using official ROCm backend supported PyTorch 2.7.1. 
+``` bash
+docker run \
+--device /dev/dri \
+--device /dev/kfd \
+--network host \
+--ipc host \
+--group-add video \
+--cap-add SYS_PTRACE \
+--security-opt seccomp=unconfined \
+--privileged \
+-it -d \
+--name lerobot rocm/pytorch:rocm7.0_ubuntu24.04_py3.12_pytorch_release_2.7.1
+/bin/bash
+```
+**Note:** The reason to choose Pytorch 2.7.1 is that Lerobot has only been verified on Pytorch 2.7.x. `--volume /path/on/host:/path/in/container` can be added to set a shared folder between host and container. Datasets and trained models can be transfered through the folder.
+#### Install FFmpeg 7.x
+``` bash
+add-apt-repository ppa:ubuntuhandbook1/ffmpeg7 # install PPA which contains ffmpeg 7.x
+apt update
+apt install ffmpeg
+ffmpeg -version # verify version
+```
+#### Install LeRobot v0.4.0
+``` bash
+git clone https://github.com/huggingface/lerobot.git
+cd lerobot
 
-    -  **Option 2**: build environment from official ROCm Docker image. Here are the steps to prepare the environment.
-        1. Pull official Docker image for PyTorch 2.7.1 with ROCm backend support. **Note:** The reason to choose Pytorch 2.7.1 is that Lerobot has only been verified on Pytorch 2.7.x. 
-            ``` bash
-            docker pull rocm/pytorch:rocm6.4.4_ubuntu24.04_py3.12_pytorch_release_2.7.1
-            ```
-        2. Start the container
-        ``` bash
-        docker run \
-        --device /dev/dri \
-        --device /dev/kfd \
-        --network host \
-        --ipc host \
-        --group-add video \
-        --cap-add SYS_PTRACE \
-        --security-opt seccomp=unconfined \
-        --volume /path/on/host:/path/in/container \
-        --privileged \
-        -it -d \
-        --name lerobot rocm/pytorch:rocm6.4.4_ubuntu24.04_py3.12_pytorch_release_2.7.1
-        /bin/bash
-        ```
-        3. Install FFmpeg 7.1.1
-        ``` bash
-        apt add-apt-repository ppa:ubuntuhandbook1/ffmpeg7 # install PPA which contains ffmpeg 7.1.1
-        apt update
-        apt install ffmpeg
-        ffmpeg -version # verify version
-        ```
-        4. Download Lerobot v0.3.3
-        ``` bash
-        wget https://github.com/huggingface/lerobot/releases/download/v0.3.3/lerobot-0.3.3.tar.gz
-        tar zxvf lerobot-0.3.3.tar.gz -C /
-        ```
-        5. Install Lerobot in edit mode
-        ``` bash
-        cd /lerobot-0.3.3
-        pip install -e ".[smolvla]" # install both base dependencies and extra dependencies for smolvla and ACT
-        ```
-        6. Intall and Configure Wandb (optional)
-        ``` bash
-        pip install wandb
-        wandb login # create a wandb account through https://wandb.ai/signup and login wandb with your token
-        ```
-- #### Train models
-1. Use the lerobot-train CLI
+# let’s synchronize using this version
+git checkout -b v0.4.0 v0.4.0
+pip install -e ".[smolvla]" # install both base dependencies and extra dependencies for smolvla and ACT in eidt mode
+```
+## Install and Configure Weights & Biases
+Log into Weights & Biases (wandb) to enable experiment tracking and logging.
+``` bash
+pip install wandb
+wandb login # create a wandb account through https://wandb.ai/signup and login wandb with your token
+```
+## Train models
+1. Use the lerobot-train CLI from the lerobot library to train a robot control policy.     
+   Make sure to adjust the following arguments to your setup:
+   - `--dataset.repo_id=${HF_USER}/${DATASET_NAME}`:    
+     Replace this with the Hugging Face Hub repo ID where your dataset is stored, e.g., lerobot/svla_so100_pickplace.
+   - `--policy.type=act`:    
+     Specifies the policy configuration to use. `act` refers to `configuration_act.py`, which will automatically adapt to your dataset’s setup (e.g., number of motors and cameras).
+   - `--output_dir=outputs/train/...`:    
+     Directory where training logs and model checkpoints will be saved.
+   - `--job_name=...`:    
+     A name for this training job, used for logging and Weights & Biases.
+   - `--policy.device=cuda`:    
+     Use cuda if training on an NVIDIA GPU. Use mps for Apple Silicon, or cpu if no GPU is available.
+   - `--policy.push_to_hub=false`:
+     
+   - `--wandb.enable=true`:    
+     Enables Weights & Biases for visualizing training progress. You must be logged in via wandb login before running this.
     ``` bash
     lerobot-train \
       --dataset.repo_id=${HF_USER}/${DATASET_NAME} \ # The dataset in Huggingface
       --batch_size=128 \
       --steps=10000 \
-      --output_dir=outputs/train/<type>_<dataset>_<tag> \ # eg. act_pickplace_3cube_10ksteps
-      --job_name=<type>_<dataset>_<tag> \ eg. act_pickplace_3cube_10ksteps
+      --output_dir=outputs/train/act_so101_3cube_10ksteps \ # eg. act_pickplace_3cube_10ksteps
+      --job_name=act_so101_3cube_10ksteps \ eg. act_pickplace_3cube_10ksteps
       --policy.device=cuda \
       --policy.type=act \ # change to smolvla or other models
       --wandb.enable=true # disable it if it is not needed
    ```
    Notes:
-   - Replace `<type>` with act, smolvla, etc.
-   - Replace `<dataset>` with your task name (e.g., pickplace)
-   - Replace `<tag>` with a version or descriptor (e.g., 3cube_10ksteps)
    - If using a local dataset, add `--dataset.root=/path/to/dataset`.
    - Adjust `--batch_size` and `--steps` based on your hardware and dataset.
 3. Monitoring & Output
-    - Checkpoints and logs saved in `--output_dir`
+    - Model checkpoints, logs, and training plots will be saved to the specified `--output_dir`
     - Training progress visualized in your wandb dashboard
+## Login into Hugging Face Hub
+After training is done, the last checkpoint will be uploaded to Hugging Face Hub. 
+``` bash
+huggingface-cli login
+huggingface-cli upload ${HF_USER}/act_so101_3cube_10ksteps \
+  /lerobot/outputs/train/act_so101_3cube_10ksteps/checkpoints/last/pretrained_model
+```
