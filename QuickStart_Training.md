@@ -2,8 +2,13 @@
 This guide walks you through setting up environment for training imitation learning policies using [LeRobot](https://github.com/huggingface/lerobot) library on a DigitalOcean (DO) instance equipped with AMD MI300x GPUs and ROCm.
 
 ## Prerequisites
-- A Hugging Face dataset repo ID containing your training data (`--dataset.repo_id=${HF_USER}/${DATASET_NAME}`)
-- A wandb account to enable training visualization
+- A Hugging Face dataset repo ID containing your training data (`--dataset.repo_id=${HF_USER}/${DATASET_NAME}`).    
+  If you don’t have an access token yet, you can sign up for Hugging Face here: https://huggingface.co/join .    
+  After signing up, create an access token by visiting:
+https://huggingface.co/settings/tokens
+- A wandb account to enable training visualization.    
+  You can sign up for Wandb here: https://wandb.ai/signup    
+  And visit here https://wandb.ai/authorize to create a token. 
 - Access to DO instance AMD Mi300x GPU
 - Verify ROCm and GPU availability:
   ``` bash
@@ -39,7 +44,7 @@ docker run \
 --name lerobot xshan1/pytorch:rocm7.0_ubuntu24.04_py3.12_pytorch_release_2.7.1_lerobot_0.4.0
 /bin/bash
 ```
-`--volume /path/on/host:/path/in/container` can be added to set a shared folder between host and container. Datasets and trained models can be transfered through the folder.
+You can add `--volume /path/on/host:/path/in/container` to create a shared folder between the host and the container, allowing datasets and trained models to be transferred easily.
 
 ### Option 2
 Build environment from official ROCm Docker image. Here are the steps to prepare the setup.
@@ -58,12 +63,12 @@ docker run \
 --name lerobot rocm/pytorch:rocm7.0_ubuntu24.04_py3.12_pytorch_release_2.7.1
 /bin/bash
 ```
-**Note:** The reason to choose Pytorch 2.7.1 is that Lerobot has only been verified on Pytorch 2.7.x. `--volume /path/on/host:/path/in/container` can be added to set a shared folder between host and container. Datasets and trained models can be transfered through the folder.
+**Note:** At now [2025/10], LeRobot depends on PyTorch version >=2.2.1, <2.8.0 (see pyproject.toml ). You can add `--volume /path/on/host:/path/in/container` to create a shared folder between the host and the container, allowing datasets and trained models to be transferred easily.
 #### Install FFmpeg 7.x
 ``` bash
 add-apt-repository ppa:ubuntuhandbook1/ffmpeg7 # install PPA which contains ffmpeg 7.x
 apt update
-apt install ffmpeg
+apt install ffmpeg -y
 ffmpeg -version # verify version
 ```
 #### Install LeRobot v0.4.0
@@ -78,8 +83,8 @@ pip install -e ".[smolvla]" # install both base dependencies and extra dependenc
 ## Install and Configure Weights & Biases
 Log into Weights & Biases (wandb) to enable experiment tracking and logging.
 ``` bash
-pip install wandb
-wandb login # create a wandb account through https://wandb.ai/signup and login wandb with your token
+pip install wandb -y
+wandb login # enter your token to login
 ```
 ## Train models
 1. Use the lerobot-train CLI from the lerobot library to train a robot control policy.     
@@ -91,32 +96,30 @@ wandb login # create a wandb account through https://wandb.ai/signup and login w
    - `--output_dir=outputs/train/...`:    
      Directory where training logs and model checkpoints will be saved.
    - `--job_name=...`:    
-     A name for this training job, used for logging and Weights & Biases.
+     A name for this training job, used for logging and Weights & Biases. The name typically includes the model type (e.g., act, smolvla), the dataset name, and additional descriptive tags. 
    - `--policy.device=cuda`:    
-     Use cuda if training on an NVIDIA GPU. Use mps for Apple Silicon, or cpu if no GPU is available.
-   - `--policy.push_to_hub=false`:
-     
+     Use cuda if training on an NVIDIA GPU. Use mps for Apple Silicon, or cpu if no GPU is available.     
    - `--wandb.enable=true`:    
      Enables Weights & Biases for visualizing training progress. You must be logged in via wandb login before running this.
     ``` bash
     lerobot-train \
-      --dataset.repo_id=${HF_USER}/${DATASET_NAME} \ # The dataset in Huggingface
+      --dataset.repo_id=${HF_USER}/${DATASET_NAME} \
       --batch_size=128 \
       --steps=10000 \
-      --output_dir=outputs/train/act_so101_3cube_10ksteps \ # eg. act_pickplace_3cube_10ksteps
-      --job_name=act_so101_3cube_10ksteps \ eg. act_pickplace_3cube_10ksteps
+      --output_dir=outputs/train/act_so101_3cube_10ksteps \ 
+      --job_name=act_so101_3cube_10ksteps \
       --policy.device=cuda \
       --policy.type=act \ # change to smolvla or other models
-      --wandb.enable=true # disable it if it is not needed
+      --wandb.enable=true
    ```
    Notes:
    - If using a local dataset, add `--dataset.root=/path/to/dataset`.
    - Adjust `--batch_size` and `--steps` based on your hardware and dataset.
-3. Monitoring & Output
+2. Monitoring & Output
     - Model checkpoints, logs, and training plots will be saved to the specified `--output_dir`
     - Training progress visualized in your wandb dashboard
 ## Login into Hugging Face Hub
-After training is done, the last checkpoint will be uploaded to Hugging Face Hub. 
+After training is done login into the Hugging Face hub and upload the last checkpoint. 
 ``` bash
 huggingface-cli login
 huggingface-cli upload ${HF_USER}/act_so101_3cube_10ksteps \
