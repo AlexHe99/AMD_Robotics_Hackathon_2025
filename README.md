@@ -2,7 +2,7 @@
 AMD_Robotics_Hackathon_2025
 
 
-1. Tamplate for Chanllenger to commit their GitHub Repo
+1. Template for Chanllenger to commit their GitHub Repo
 
 https://github.com/AlexHe99/AMD_Robotics_Hackathon_2025_ProjectTemplate
 
